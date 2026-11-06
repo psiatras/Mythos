@@ -1,0 +1,11 @@
+import {missions} from './content';
+import type {Challenge,PlayerProgress,ReviewCard} from './types';
+export const STORE='mythos-progress-v1';
+export const fresh=():PlayerProgress=>({version:1,nickname:'Explorer',avatar:'🧭',started:false,completed:[],xp:0,inventory:[],mastery:{},reviews:{},discoveries:[],settings:{sound:true,motion:true,transliteration:false}});
+export function load():PlayerProgress {if(typeof window==='undefined')return fresh();try{const raw=localStorage.getItem(STORE);if(!raw)return fresh();const p=JSON.parse(raw);return p.version===1&&Array.isArray(p.completed)?{...fresh(),...p}:fresh()}catch{return fresh()}}
+export function save(p:PlayerProgress){if(typeof window!=='undefined')localStorage.setItem(STORE,JSON.stringify(p))}
+export function nextMission(p:PlayerProgress){return missions.find(m=>!p.completed.includes(m.id))?.id||12}
+export function available(p:PlayerProgress,id:number){return id===1||p.completed.includes(id-1)||p.completed.includes(id)}
+export function evaluate(c:Challenge,input:string){const norm=(s:string)=>s.normalize('NFC').toLocaleLowerCase('el').replace(/[.!;…]/g,'').replace(/\s+/g,' ').trim();return [c.answer,...(c.acceptedAnswers||[])].some(a=>norm(input)===norm(a))}
+export function schedule(card:ReviewCard|undefined,correct:boolean,now=Date.now()):ReviewCard{const interval=correct?Math.max(1,card?Math.ceil(card.interval*card.ease):1):1;const ease=Math.max(1.3,Math.min(2.7,(card?.ease||2.3)+(correct?.1:-.2)));return {vocabId:card?.vocabId||'',interval,ease,correct:(card?.correct||0)+(correct?1:0),due:now+interval*86400000}}
+export function complete(p:PlayerProgress,id:number,correctSkills:string[],vocabIds:string[]):PlayerProgress{if(p.completed.includes(id)||!available(p,id))return p;const mission=missions[id-1];const reviews={...p.reviews};for(const v of vocabIds){if(v)reviews[v]={...schedule(reviews[v],true),vocabId:v}}const mastery={...p.mastery};for(const s of correctSkills)mastery[s]=(mastery[s]||0)+1;return {...p,completed:[...p.completed,id],xp:p.xp+50+mission.challenges.length*10,mastery,reviews,inventory:[...p.inventory,{id:`reward-${id}`,name:mission.reward,description:`Found during ${mission.title}.`,earnedAt:Date.now()}]}}
